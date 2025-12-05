@@ -52,9 +52,9 @@ void main() {
    lcd_init();
    delay_ms(50);
     lcd_gotoxy(1,1);
-    printf(lcd_putc,"     LINH THY   ");
+    printf(lcd_putc,"     NAME   ");
     lcd_gotoxy(1,2);
-    printf(lcd_putc,"     42200358   ");
+    printf(lcd_putc,"     ID   ");
     delay_ms(1500);
     lcd_putc('\f'); 
   
