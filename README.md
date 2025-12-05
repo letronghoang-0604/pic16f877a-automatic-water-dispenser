@@ -3,107 +3,80 @@ Automatic water volume dispenser using PIC16F877A, flow sensor and IR cup detect
 
 # Automatic Water Volume Dispenser using PIC16F877A (CCS C)
 
-This project implements an automatic water volume dispenser using a **PIC16F877A** microcontroller and **CCS C** compiler.  
-The system uses a **flow sensor** (YF-S402), an **IR sensor** to detect the cup, push buttons to set the target volume in milliliters, a **relay** to control the pump/valve, a **buzzer** for feedback and **LEDs** plus an **LCD** for user interface. :contentReference[oaicite:1]{index=1}
-
----
+This is a small embedded project using a **PIC16F877A** microcontroller and **CCS C** compiler to automatically dispense a specified volume of water in milliliters.  
+The system measures flow using a **YF-S402 flow sensor**, detects cup presence with an **IR sensor**, displays information on a **16x2 LCD**, and controls a pump/valve through a **relay**. Push buttons are used to set the desired volume, and a **buzzer** plus **LEDs** provide user feedback.
 
 ## Features
 
-- Set the desired water volume in **milliliters (ml)** using **UP** and **DOWN** buttons (step of 10 ml).
-- Detect cup presence using an **IR sensor**:
-  - If no cup is present, the system shows a message and does not start dispensing.
-- Measure the dispensed volume using a **YF-S402** flow sensor:
-  - Flow pulses are counted via external interrupt on `RB0/INT`.
-  - Pulses are converted to ml using a calibration factor.
-- Control a **relay** to turn the pump/valve ON/OFF.
-- Provide visual and sound feedback:
-  - **RED / GREEN LEDs** indicate status.
-  - **Buzzer** beeps at start and end of dispensing.
-- Information display on a **16x2 character LCD**:
-  - Target volume (SET)
-  - Current dispensed volume (ml)
-  - Status messages (cup present / no cup / done).
-
----
+- Set the desired water volume in **milliliters (ml)** using **UP** and **DOWN** buttons (e.g. step of 10 ml).
+- Detect cup presence using an **IR sensor** so the system only starts when a cup is in place.
+- Measure dispensed volume using a **YF-S402 flow sensor** connected to an external interrupt pin.
+- Display the **target volume** and **current dispensed volume** on a **16x2 character LCD**.
+- Control a pump or valve using a **relay**:
+  - Pump OFF when there is no cup or the target volume is reached.
+  - Pump ON while dispensing until the requested volume is delivered.
+- Use **LEDs** and a **buzzer** to indicate system status:
+  - Beep at start/end of dispensing.
+  - Different LED colors for idle/dispensing state.
 
 ## Hardware
 
-- Microcontroller: **PIC16F877A** (20 MHz crystal)
-- Flow sensor: **YF-S402** (or similar Hall-effect flow sensor)
-- IR sensor module for cup detection
-- 16x2 character LCD (in 4-bit mode)
-- Relay module to drive pump or solenoid valve
-- Buzzer
-- LEDs: RED and GREEN
-- Push buttons: `UP`, `DOWN`
-- Power supply
-
-Pin mapping (as used in the code):
-
-- **LCD**: control pins on PORTB/PORTD (see `lcd.c` and defines in `water_dispenser.c`)
-- **IR sensor**: `PIN_A0`
-- **UP button**: `PIN_A1`
-- **DOWN button**: `PIN_A2`
-- **FLOW sensor (YF-S402)**: `PIN_B0` (external interrupt `INT_EXT`)
-- **RELAY**: `PIN_C3`
-- **BUZZER**: `PIN_C0`
-- **LED_RED**: `PIN_D1`
-- **LED_GR**: `PIN_D0`
-
----
+- Microcontroller: **PIC16F877A** (20 MHz external crystal)
+- Flow sensor: **YF-S402** (or similar Hall-effect water flow sensor)
+- IR cup detection sensor (IR LED + photodiode module)
+- 16x2 character LCD (4-bit mode)
+- Relay module to drive the water pump or solenoid valve
+- Buzzer for audible feedback
+- Status LEDs (e.g. RED and GREEN)
+- Push buttons for **UP** and **DOWN** volume adjustment
+- Power supply (5 V for logic, separate supply for pump if needed)
+- Miscellaneous: resistors, wires, breadboard or PCB
 
 ## Software & Tools
 
-- **Compiler**: CCS C for PIC (`#include <16F877A.h>`)
-- **Clock**: 20 MHz (`#use delay(clock=20000000)`)
-- **LCD driver**: `lcd.c` (standard CCS LCD library)
-- **IDE**: CCS IDE or MPLAB X with CCS plugin
-- **Programmer**: PICkit or compatible PIC programmer
+- **Compiler**: CCS C for PIC (`#include <16F877A.h>`)  
+- Clock: 20 MHz (`#use delay(clock=20000000)`)
+- LCD library: `lcd.c` (standard CCS LCD driver)
+- IDE: CCS IDE or MPLAB X with CCS plug-in (or any environment that supports CCS C)
+- Programmer: PICkit or compatible programmer for PIC16F877A
+- Optional: Proteus for circuit simulation and testing
 
----
+## Code Overview
 
-## How It Works
+Main source file: `water_dispenser.c`
 
-### 1. Pulse counting and volume calculation
+Key points:
+- The **flow sensor** output is connected to the external interrupt pin (`RB0/INT`); each pulse from the sensor increments a global pulse counter.
+- A conversion function translates the number of pulses into **milliliters** using a calibration factor (ml per pulse).
+- An **IR sensor** input is used to detect whether a cup is present under the outlet; if no cup is detected, the system does not start dispensing.
+- **UP** and **DOWN** buttons adjust the target volume variable (e.g. `set_ml`) in steps (e.g. 10 ml), with simple debounce delays.
+- The **LCD** shows:
+  - Target volume (SET) on one line.
+  - Current dispensed volume or status messages on the other line.
+- The **relay** control pin turns the pump/valve ON while dispensing and OFF when:
+  - The desired volume is reached, or
+  - The cup is removed.
+- The **buzzer** and **LEDs** give feedback at the start and end of dispensing or when there is an error/no cup.
 
-- The flow sensor (YF-S402) generates pulses proportional to the flow rate.
-- Each pulse triggers the external interrupt `INT_EXT` on `RB0`, and the interrupt service routine increments `pulse_count`.
-- A helper function converts pulses to ml:
-float pulses_to_ml(unsigned int16 pulses) {
-   return (float)pulses / 4.5;   // calibration factor (adjust as needed)
-}
-The current dispensed volume is computed as: current_ml = (unsigned int16)pulses_to_ml(pulse_count);
+## How It Works (High-Level)
 
-### 2. User interface
+1. **Initialize:**
+   - Configure I/O directions for buttons, IR sensor, LEDs, relay and buzzer.
+   - Initialize the LCD in 4-bit mode.
+   - Configure external interrupt on `RB0` for the flow sensor pulses.
+   - Initialize global variables for pulse count, target volume and current volume.
 
-set_ml holds the target volume (default 100 ml, adjustable from 10 to 9990 ml).
-UP / DOWN buttons increase or decrease set_ml by 10 ml with a simple debounce delay.
-The LCD displays:
-  - Line 1: SET: xxxx ml
-  - Line 2: current volume or status messages.
-  
-### 3. Dispensing logic
-
-Continuously read buttons and update set_ml.
-Check IR sensor:
-
-If no cup is present:
-  - Show "NO CUP" message (in the original code, Vietnamese text is used).
-  - Relay is OFF, LEDs indicate safe/idle state.
-
-If a cup is detected and the system is not in done state:
-  - Turn on RED LED, turn off GREEN LED.
-  - Beep the buzzer briefly to indicate start.
-  - Reset pulse_count and current_ml.
-  - Turn ON the relay to start water flow.
-
-While the cup is present and current_ml < set_ml:
-  - Continuously update current_ml from pulse_count.
-  - Update the LCD with the current volume.
-  - If the cup is removed mid-process, stop immediately.
-
-When current_ml >= set_ml or the cup is removed:
-  - Turn OFF the relay.
-  -Beep the buzzer to indicate completion.
-  -Set done = 1 until the next cycle.
+2. **In the main loop:**
+   - Read the **UP** and **DOWN** buttons to increase or decrease the target volume (in ml) within allowed limits.
+   - Continuously check the **IR sensor**:
+     - If no cup is detected, show a “no cup” / “place cup” message, keep the relay OFF and the system in idle state.
+     - If a cup is detected and the system is not currently dispensing, prepare to start a new dispensing cycle.
+   - When a valid target volume is set and a cup is present:
+     - Reset the pulse counter and current volume.
+     - Turn ON the relay to start the pump/valve.
+     - Optionally beep the buzzer and change LED state to “dispensing”.
+   - While dispensing:
+     - Update the current volume by converting the pulse count from the flow sensor into ml.
+     - Refresh the LCD display with the target and current volume.
+     - If the cup is removed, immediately stop dispensing for safety.
+     - If the current volume reaches or exceeds the target volume, turn OFF the relay, beep the buzzer, set a “done” status and wait for the next cycle.
